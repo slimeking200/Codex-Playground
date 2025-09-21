@@ -38,6 +38,7 @@ export class Game {
   private world?: WorldManager;
   private fishes: Fish[] = [];
   private sonarPings: SonarPing[] = [];
+  private readonly fishSonarTasks = new Map<Fish, number>();
   private readonly catchFeed: HTMLElement;
   private hookingCooldown = 0;
   private cameraPivot = new THREE.Object3D();
@@ -121,10 +122,7 @@ export class Game {
       for (let i = 0; i < population; i++) {
         const position = this.world.getSpawnPoint(species.habitat);
         const fish = new Fish(species, position);
-        this.scene.add(fish.object);
-        this.fishes.push(fish);
-        this.createSonarPing(position.clone());
-        this.scheduler.schedule(() => this.createSonarPing(position.clone()), this.random.range(4, 12), true);
+        this.registerFish(fish);
       }
     }
   }
@@ -288,8 +286,7 @@ export class Game {
   private resolveCatch(fish: Fish): void {
     this.spawnCatchNotification(`Caught ${fish.species.name}!`, '#6df6c1');
     this.questSystem.registerCatch(this.player, fish.species.id);
-    this.scene.remove(fish.object);
-    this.fishes = this.fishes.filter((f) => f !== fish);
+    this.removeFish(fish);
 
     this.scheduler.schedule(() => this.respawnFish(fish.species), this.random.range(20, 45));
   }
@@ -300,9 +297,7 @@ export class Game {
     }
     const position = this.world.getSpawnPoint(species.habitat);
     const fish = new Fish(species, position);
-    this.scene.add(fish.object);
-    this.fishes.push(fish);
-    this.createSonarPing(position);
+    this.registerFish(fish);
   }
 
   private createSonarPing(position: THREE.Vector3): void {
@@ -313,6 +308,40 @@ export class Game {
     mesh.rotation.x = -Math.PI / 2;
     this.scene.add(mesh);
     this.sonarPings.push({ mesh, time: 0 });
+  }
+
+  private registerFish(fish: Fish): void {
+    this.scene.add(fish.object);
+    this.fishes.push(fish);
+    this.createSonarPing(fish.object.position.clone());
+    this.scheduleFishSonar(fish);
+  }
+
+  private removeFish(fish: Fish): void {
+    this.cancelFishSonar(fish);
+    this.scene.remove(fish.object);
+    this.fishes = this.fishes.filter((candidate) => candidate !== fish);
+  }
+
+  private scheduleFishSonar(fish: Fish): void {
+    const delay = this.random.range(4, 12);
+    const taskId = this.scheduler.schedule(() => {
+      if (!this.fishes.includes(fish)) {
+        this.fishSonarTasks.delete(fish);
+        return;
+      }
+      this.createSonarPing(fish.object.position.clone());
+      this.scheduleFishSonar(fish);
+    }, delay);
+    this.fishSonarTasks.set(fish, taskId);
+  }
+
+  private cancelFishSonar(fish: Fish): void {
+    const taskId = this.fishSonarTasks.get(fish);
+    if (taskId !== undefined) {
+      this.scheduler.cancel(taskId);
+      this.fishSonarTasks.delete(fish);
+    }
   }
 
   private spawnCatchNotification(message: string, color: string): void {
