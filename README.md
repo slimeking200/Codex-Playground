@@ -44,3 +44,11 @@ npm run build
 ```
 
 The compiled assets will land in the `dist/` directory ready for static hosting or inclusion in a Windows installer.
+
+### Maintenance utilities
+
+Run the merge-conflict guard to ensure no files contain unresolved markers before committing or opening a pull request:
+
+```bash
+npm run check:conflicts
+```
