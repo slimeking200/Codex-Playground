@@ -13,6 +13,7 @@ import { Journal } from '../ui/Journal';
 import { TutorialOverlay } from '../ui/TutorialOverlay';
 import { TaskScheduler } from './TaskScheduler';
 import { Random } from '../utils/Random';
+import { FishingEncounter, EncounterHudInfo } from './FishingEncounter';
 
 interface SonarPing {
   mesh: THREE.Mesh;
@@ -42,6 +43,7 @@ export class Game {
   private cameraPivot = new THREE.Object3D();
   private cameraOffset = new THREE.Vector3(0, 35, 65);
   private readonly random = new Random(1337);
+  private activeEncounter?: FishingEncounter;
 
   constructor(private readonly container: HTMLElement, private readonly callbacks: LoadingCallbacks) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -74,7 +76,11 @@ export class Game {
     this.container.appendChild(this.catchFeed);
 
     window.addEventListener('resize', () => this.onResize());
-    this.renderer.domElement.addEventListener('mousedown', () => this.castLine());
+    this.renderer.domElement.addEventListener('mousedown', (event) => {
+      if (event.button === 0) {
+        this.castLine();
+      }
+    });
     this.onResize();
   }
 
@@ -107,14 +113,13 @@ export class Game {
   }
 
   private spawnFishSchools(): void {
+    if (!this.world) {
+      return;
+    }
     for (const species of FISH_SPECIES) {
       const population = this.getPopulationForSpecies(species);
       for (let i = 0; i < population; i++) {
-        const position = new THREE.Vector3(
-          this.random.range(-400, 400),
-          this.random.range(-80, -10),
-          this.random.range(-400, 400)
-        );
+        const position = this.world.getSpawnPoint(species.habitat);
         const fish = new Fish(species, position);
         this.scene.add(fish.object);
         this.fishes.push(fish);
@@ -149,16 +154,18 @@ export class Game {
 
     this.world?.update(deltaTime);
     this.player.update(deltaTime, this.input);
+    this.handleQuickLureSwap();
     this.menu.update();
 
     for (const fish of this.fishes) {
       fish.update(deltaTime);
     }
 
+    const encounterInfo = this.updateEncounter(deltaTime);
     this.updateCamera(deltaTime);
     this.updateSonar(deltaTime);
 
-    this.hud.update(deltaTime, this.player, this.questSystem);
+    this.hud.update(deltaTime, this.player, this.questSystem, encounterInfo);
 
     this.scheduler.update(deltaTime);
 
@@ -202,7 +209,7 @@ export class Game {
   }
 
   private castLine(): void {
-    if (this.hookingCooldown > 0) {
+    if (this.hookingCooldown > 0 || this.activeEncounter) {
       return;
     }
     this.audio.resume().catch(() => undefined);
@@ -210,9 +217,10 @@ export class Game {
 
     const catchable = this.findCatchCandidate();
     if (catchable) {
-      const chance = this.getCatchChance(catchable.species.rarity);
+      const chance = this.getCatchChance(catchable.species);
       if (Math.random() < chance) {
-        this.resolveCatch(catchable);
+        this.activeEncounter = new FishingEncounter(catchable, this.random);
+        this.spawnCatchNotification(`Hooked ${catchable.species.name}! Steady your reel.`, '#63d9ff');
       } else {
         this.spawnCatchNotification('The line went slack...', '#9fb1c7');
       }
@@ -235,23 +243,46 @@ export class Game {
     return closest;
   }
 
-  private getCatchChance(rarity: FishSpecies['rarity']): number {
-    switch (rarity) {
+  private getCatchChance(species: FishSpecies): number {
+    let baseChance: number;
+    switch (species.rarity) {
       case 'common':
-        return 0.9;
+        baseChance = 0.85;
+        break;
       case 'uncommon':
-        return 0.75;
+        baseChance = 0.7;
+        break;
       case 'rare':
-        return 0.5;
+        baseChance = 0.48;
+        break;
       case 'epic':
-        return 0.35;
+        baseChance = 0.34;
+        break;
       case 'legendary':
-        return 0.2;
+        baseChance = 0.22;
+        break;
       case 'mythic':
-        return 0.08;
+        baseChance = 0.12;
+        break;
       default:
-        return 0.2;
+        baseChance = 0.25;
     }
+
+    const lure = this.player.stats.equippedLure;
+    if (species.habitat.some((habitat) => lure.idealHabitats.includes(habitat))) {
+      baseChance += 0.1;
+    }
+
+    const hour = this.world?.getCurrentHour() ?? 12;
+    const [start, end] = species.activeHours;
+    const withinHours = start <= end ? hour >= start && hour <= end : hour >= start || hour <= end;
+    if (withinHours) {
+      baseChance += 0.08;
+    } else {
+      baseChance -= 0.08;
+    }
+
+    return THREE.MathUtils.clamp(baseChance, 0.05, 0.95);
   }
 
   private resolveCatch(fish: Fish): void {
@@ -264,11 +295,10 @@ export class Game {
   }
 
   private respawnFish(species: FishSpecies): void {
-    const position = new THREE.Vector3(
-      this.random.range(-400, 400),
-      this.random.range(-120, -10),
-      this.random.range(-400, 400)
-    );
+    if (!this.world) {
+      return;
+    }
+    const position = this.world.getSpawnPoint(species.habitat);
     const fish = new Fish(species, position);
     this.scene.add(fish.object);
     this.fishes.push(fish);
@@ -296,6 +326,56 @@ export class Game {
       entry.classList.remove('visible');
       setTimeout(() => entry.remove(), 400);
     }, 4000);
+  }
+
+  private updateEncounter(deltaTime: number): EncounterHudInfo | undefined {
+    if (!this.activeEncounter) {
+      return undefined;
+    }
+
+    const reeling = this.input.isMouseDown(0) || this.input.isPressed('Space');
+    const boatPosition = this.player.getPosition().clone();
+    const state = this.activeEncounter.update(deltaTime, reeling, boatPosition);
+    const info = this.activeEncounter.getHudInfo();
+
+    if (state === 'reeling') {
+      return info;
+    }
+
+    const fish = this.activeEncounter.getFish();
+    if (state === 'caught') {
+      this.resolveCatch(fish);
+    } else if (state === 'escaped') {
+      this.spawnCatchNotification(`${fish.species.name} slipped the line!`, '#ffbb6b');
+    } else if (state === 'snapped') {
+      this.spawnCatchNotification(`${fish.species.name} snapped the line!`, '#ff6b6b');
+    }
+
+    this.activeEncounter = undefined;
+    this.hookingCooldown = 0.5;
+    return undefined;
+  }
+
+  private handleQuickLureSwap(): void {
+    if (this.input.consumeKeyPress('Digit1')) {
+      this.tryEquipLure(0);
+    }
+    if (this.input.consumeKeyPress('Digit2')) {
+      this.tryEquipLure(1);
+    }
+    if (this.input.consumeKeyPress('Digit3')) {
+      this.tryEquipLure(2);
+    }
+    if (this.input.consumeKeyPress('Digit4')) {
+      this.tryEquipLure(3);
+    }
+  }
+
+  private tryEquipLure(index: number): void {
+    const changed = this.player.quickEquipByIndex(index);
+    if (changed) {
+      this.spawnCatchNotification(`Equipped ${this.player.stats.equippedLure.name}`, '#b0e3ff');
+    }
   }
 
   private onResize(): void {

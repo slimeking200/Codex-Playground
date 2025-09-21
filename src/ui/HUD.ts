@@ -1,11 +1,13 @@
 import { Player } from '../entities/Player';
 import { QuestSystem } from '../entities/QuestSystem';
+import { EncounterHudInfo } from '../core/FishingEncounter';
 
 export class HUD {
   private readonly root: HTMLElement;
   private readonly statsPanel: HTMLElement;
   private readonly questPanel: HTMLElement;
   private readonly tipPanel: HTMLElement;
+  private readonly encounterPanel: HTMLElement;
   private readonly tipMessages: string[] = [
     'Use W/A/S/D to steer the catamaran and hunt for sonar pings.',
     'Press number keys to cycle lures tailored to specific habitats.',
@@ -32,11 +34,21 @@ export class HUD {
     this.tipPanel.className = 'hud-tip';
     this.root.appendChild(this.tipPanel);
     this.renderTips();
+
+    this.encounterPanel = document.createElement('section');
+    this.encounterPanel.className = 'hud-encounter hidden';
+    this.root.appendChild(this.encounterPanel);
   }
 
-  public update(deltaTime: number, player: Player, questSystem: QuestSystem): void {
+  public update(
+    deltaTime: number,
+    player: Player,
+    questSystem: QuestSystem,
+    encounter?: EncounterHudInfo
+  ): void {
     this.renderStats(player);
     this.renderQuests(questSystem);
+    this.renderEncounter(encounter);
 
     this.tipTimer += deltaTime;
     if (this.tipTimer > 12) {
@@ -82,5 +94,31 @@ export class HUD {
 
   private renderTips(): void {
     this.tipPanel.innerHTML = `<h2>Sonar Tip</h2><p>${this.tipMessages[this.tipIndex]}</p>`;
+  }
+
+  private renderEncounter(info?: EncounterHudInfo): void {
+    if (!info || info.state !== 'reeling') {
+      this.encounterPanel.classList.add('hidden');
+      this.encounterPanel.innerHTML = '';
+      return;
+    }
+
+    this.encounterPanel.classList.remove('hidden');
+    const progressPercent = Math.round(info.progress * 100);
+    const tensionPercent = Math.round(info.tension);
+    this.encounterPanel.innerHTML = `
+      <header>
+        <h2>Hooked ${info.fishName}</h2>
+        <span class="rarity ${info.rarity}">${info.rarity.toUpperCase()}</span>
+      </header>
+      <p class="difficulty">Difficulty: ${info.difficultyLabel}</p>
+      <div class="bars">
+        <label>Tension</label>
+        <div class="bar tension"><span style="width: ${tensionPercent}%"></span></div>
+        <label>Reel Progress</label>
+        <div class="bar progress"><span style="width: ${progressPercent}%"></span></div>
+      </div>
+      <footer>Hold LMB or Space to reel. Ease up if the tension peaks in the red.</footer>
+    `;
   }
 }

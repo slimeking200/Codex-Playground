@@ -10,6 +10,13 @@ Azure Depths is an expansive Three.js-powered fishing simulation packed with rea
 - **Diegetic UI** – holographic HUD, codex menus, expedition journal, tutorial briefings, and animated catch feed.
 - **Immersive ambience** – adaptive audio beds and tactile feedback such as sonar rings, water ripples, and reactive sails.
 
+## Fishing systems
+
+- **Interactive encounters** – casting near sonar pings can trigger a full tension-management minigame. Hold **LMB** or **Space** to reel, ease off before the line flashes red, and balance slack to land ferocious epic and mythic species.
+- **Habitat-aware spawns** – every biome (reef, river, volcanic, ancient ruins, and more) maintains handcrafted anchor points and depth bands so schools swim in believable strata instead of random scatter.
+- **Temporal behavior** – the day/night cycle drives capture odds; stalking a nocturnal Voltaic Eel at dusk yields better hook-ups than chasing it at noon.
+- **Rapid lure swaps** – tap number keys to quick-equip lures tailored for specific habitats without leaving the helm.
+
 ## Getting Started
 
 ```bash

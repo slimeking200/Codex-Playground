@@ -22,4 +22,8 @@ export class DayNightCycle {
       ambient.intensity = lerp(0.15, 0.7, Math.max(0.1, Math.sin(angle * 0.9)));
     }
   }
+
+  public getCurrentHour(): number {
+    return (this.elapsed / this.fullDayDuration) * 24;
+  }
 }

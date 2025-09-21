@@ -9,6 +9,7 @@ export type PointerState = {
 
 export class InputManager {
   private keys = new Map<string, boolean>();
+  private justPressed = new Set<string>();
   private pointer: PointerState = {
     x: 0,
     y: 0,
@@ -17,11 +18,14 @@ export class InputManager {
     wheel: 0,
     pointerLocked: false
   };
+  private mouseButtons = new Map<number, boolean>();
 
   constructor(private readonly element: HTMLElement) {
     element.tabIndex = 0;
     element.addEventListener('keydown', (event) => this.onKey(event, true));
     element.addEventListener('keyup', (event) => this.onKey(event, false));
+    element.addEventListener('mousedown', (event) => this.onMouseButton(event, true));
+    window.addEventListener('mouseup', (event) => this.onMouseButton(event, false));
     element.addEventListener('mousemove', (event) => this.onPointerMove(event));
     element.addEventListener('wheel', (event) => this.onWheel(event));
     element.addEventListener('click', () => this.requestPointerLock());
@@ -29,6 +33,9 @@ export class InputManager {
   }
 
   private onKey(event: KeyboardEvent, value: boolean): void {
+    if (value && !this.keys.get(event.code)) {
+      this.justPressed.add(event.code);
+    }
     this.keys.set(event.code, value);
   }
 
@@ -43,6 +50,10 @@ export class InputManager {
     this.pointer.wheel += event.deltaY;
   }
 
+  private onMouseButton(event: MouseEvent, value: boolean): void {
+    this.mouseButtons.set(event.button, value);
+  }
+
   private requestPointerLock(): void {
     if (!this.pointer.pointerLocked) {
       void this.element.requestPointerLock();
@@ -55,6 +66,18 @@ export class InputManager {
 
   public isPressed(code: string): boolean {
     return this.keys.get(code) ?? false;
+  }
+
+  public consumeKeyPress(code: string): boolean {
+    const had = this.justPressed.has(code);
+    if (had) {
+      this.justPressed.delete(code);
+    }
+    return had;
+  }
+
+  public isMouseDown(button: number): boolean {
+    return this.mouseButtons.get(button) ?? false;
   }
 
   public consumePointerDelta(): { dx: number; dy: number } {

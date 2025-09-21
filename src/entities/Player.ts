@@ -72,6 +72,19 @@ export class Player {
     return true;
   }
 
+  public quickEquipByIndex(index: number): boolean {
+    const items = this.lureInventory.list();
+    const entry = items[index];
+    if (!entry) {
+      return false;
+    }
+    if (this.stats.equippedLure.id === entry.item.id) {
+      return false;
+    }
+    this.stats.equippedLure = entry.item;
+    return true;
+  }
+
   public getPosition(): THREE.Vector3 {
     return this.boat.getPosition();
   }

@@ -3,6 +3,7 @@ import { WaterSurface } from './WaterSurface';
 import { SkyDome } from './SkyDome';
 import { DayNightCycle } from '../simulation/DayNightCycle';
 import { WeatherSystem } from '../simulation/WeatherSystem';
+import { Habitat } from '../entities/SpeciesData';
 
 export class WorldManager {
   private water: WaterSurface;
@@ -10,6 +11,16 @@ export class WorldManager {
   private dayNight: DayNightCycle;
   private weather: WeatherSystem;
   private islands: THREE.Group;
+  private habitatAnchors: Record<Habitat, THREE.Vector3[]>;
+  private habitatDepths: Record<Habitat, { min: number; max: number }> = {
+    reef: { min: -16, max: -32 },
+    open_ocean: { min: -40, max: -90 },
+    deep: { min: -120, max: -260 },
+    river: { min: -6, max: -18 },
+    ice: { min: -14, max: -36 },
+    volcanic: { min: -60, max: -140 },
+    ancient: { min: -90, max: -190 }
+  };
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -24,6 +35,7 @@ export class WorldManager {
     this.islands = this.createArchipelago();
     scene.add(this.islands);
     this.weather = new WeatherSystem(scene, this.sky.getMaterial());
+    this.habitatAnchors = this.createHabitatAnchors();
   }
 
   public update(deltaTime: number): void {
@@ -31,6 +43,21 @@ export class WorldManager {
     this.weather.update(deltaTime);
     this.sky.update(deltaTime);
     this.water.update(deltaTime, this.sun.position.clone().normalize());
+  }
+
+  public getCurrentHour(): number {
+    return this.dayNight.getCurrentHour();
+  }
+
+  public getSpawnPoint(habitats: Habitat[]): THREE.Vector3 {
+    const targetHabitat = habitats[Math.floor(Math.random() * habitats.length)];
+    const anchors = this.habitatAnchors[targetHabitat] ?? [new THREE.Vector3()];
+    const anchor = anchors[Math.floor(Math.random() * anchors.length)] ?? new THREE.Vector3();
+    const jitter = new THREE.Vector3((Math.random() - 0.5) * 120, 0, (Math.random() - 0.5) * 120);
+    const depth = this.habitatDepths[targetHabitat] ?? { min: -20, max: -60 };
+    const position = anchor.clone().add(jitter);
+    position.y = THREE.MathUtils.randFloat(depth.min, depth.max);
+    return position;
   }
 
   private createArchipelago(): THREE.Group {
@@ -68,5 +95,41 @@ export class WorldManager {
     }
 
     return group;
+  }
+
+  private createHabitatAnchors(): Record<Habitat, THREE.Vector3[]> {
+    return {
+      reef: [
+        new THREE.Vector3(-160, -20, 120),
+        new THREE.Vector3(140, -24, 90),
+        new THREE.Vector3(-40, -18, -140)
+      ],
+      open_ocean: [
+        new THREE.Vector3(-320, -60, 0),
+        new THREE.Vector3(280, -70, -180),
+        new THREE.Vector3(60, -65, 260)
+      ],
+      deep: [
+        new THREE.Vector3(-420, -160, -260),
+        new THREE.Vector3(340, -180, 220)
+      ],
+      river: [
+        new THREE.Vector3(-60, -10, 40),
+        new THREE.Vector3(40, -12, -60)
+      ],
+      ice: [
+        new THREE.Vector3(-220, -22, 260),
+        new THREE.Vector3(220, -30, 280)
+      ],
+      volcanic: [
+        new THREE.Vector3(-260, -80, -220),
+        new THREE.Vector3(200, -90, -260)
+      ],
+      ancient: [
+        new THREE.Vector3(0, -120, 0),
+        new THREE.Vector3(-80, -130, -320),
+        new THREE.Vector3(160, -150, 320)
+      ]
+    };
   }
 }

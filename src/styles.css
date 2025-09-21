@@ -88,6 +88,114 @@ canvas {
   margin: 0;
 }
 
+.hud-encounter {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translate(-50%, 0);
+  width: min(460px, 90vw);
+  background: rgba(7, 18, 32, 0.88);
+  border: 1px solid rgba(99, 210, 255, 0.45);
+  border-radius: 18px;
+  padding: 18px 24px;
+  box-shadow: 0 28px 48px rgba(2, 8, 20, 0.55);
+  color: #e6f6ff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  backdrop-filter: blur(8px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.hud-encounter.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 18px);
+}
+
+.hud-encounter header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hud-encounter .rarity {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hud-encounter .rarity.common {
+  color: #9fe2ff;
+}
+
+.hud-encounter .rarity.uncommon {
+  color: #85ffcf;
+}
+
+.hud-encounter .rarity.rare {
+  color: #87a3ff;
+}
+
+.hud-encounter .rarity.epic {
+  color: #d08cff;
+}
+
+.hud-encounter .rarity.legendary {
+  color: #ffcf73;
+}
+
+.hud-encounter .rarity.mythic {
+  color: #ff93e1;
+}
+
+.hud-encounter .difficulty {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: rgba(186, 235, 255, 0.8);
+}
+
+.hud-encounter .bars {
+  display: grid;
+  gap: 6px;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+.hud-encounter .bar {
+  height: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.hud-encounter .bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #4de0ff 0%, #1b8dff 60%, #ff5f5f 100%);
+  box-shadow: 0 0 14px rgba(99, 210, 255, 0.7);
+  transition: width 0.12s ease;
+}
+
+.hud-encounter .bar.progress span {
+  background: linear-gradient(90deg, #5af3ad 0%, #39d9ff 80%);
+  box-shadow: 0 0 14px rgba(90, 243, 173, 0.65);
+}
+
+.hud-encounter footer {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 @media (max-width: 1024px) {
   .hud {
     grid-template-columns: 1fr;

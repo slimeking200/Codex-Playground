@@ -9,6 +9,7 @@ export class Fish {
   private forward = new THREE.Vector3(1, 0, 0);
   private behavior: FishBehavior;
   private wobblePhase = Math.random() * Math.PI * 2;
+  private hooked = false;
 
   constructor(public readonly species: FishSpecies, startPosition: THREE.Vector3) {
     this.object = new THREE.Group();
@@ -41,10 +42,26 @@ export class Fish {
   }
 
   public update(deltaTime: number): void {
+    if (this.hooked) {
+      this.animateIdle(deltaTime);
+      return;
+    }
     this.forward = this.behavior.update(deltaTime, this.object.position, this.forward);
     const targetQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), this.forward.clone().normalize());
     this.object.quaternion.slerp(targetQuaternion, 0.1);
 
+    this.animateIdle(deltaTime);
+  }
+
+  public setHooked(value: boolean): void {
+    this.hooked = value;
+  }
+
+  public isHooked(): boolean {
+    return this.hooked;
+  }
+
+  private animateIdle(deltaTime: number): void {
     this.wobblePhase += deltaTime * 6;
     const wobble = Math.sin(this.wobblePhase) * 0.2;
     this.body.rotation.y = wobble * 0.5;
